@@ -101,7 +101,7 @@ namespace 潮汐
 
         private void notifyIcon1_MouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left && e.Clicks == 1)
+            if (e.Button == MouseButtons.Left)
             {
                 switch (state)
                 {
