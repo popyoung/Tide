@@ -110,6 +110,9 @@
     <Content Include="Resources\forest.wma">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\Windows Notify.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Resources\hourglass.ico" />
     <Content Include="Resources\meditation.wma">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

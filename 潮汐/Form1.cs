@@ -79,6 +79,7 @@ namespace 潮汐
                 {
                     case States.未启动:
                         StartWork();
+                        backgroundWorker1.RunWorkerAsync();
                         break;
                     case States.工作:
                     case States.休息:
@@ -121,16 +122,15 @@ namespace 潮汐
         {
             countDown = new TimeSpan(0, (int)config.工作时间, 0);
             state = States.工作;
+            PlayEffect(1);
             PlayMusic(music[config.背景音乐]);
-            backgroundWorker1.RunWorkerAsync();
         }
 
         private void StartBreak()
         {
             countDown = new TimeSpan(0, (int)config.休息时间, 0);
             state = States.休息;
-            StopMusic();
-            backgroundWorker1.RunWorkerAsync();
+            PlayEffect(1);
         }
 
         enum States
@@ -152,7 +152,6 @@ namespace 潮汐
 
         private void backgroundWorker1_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            ShowTip();
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
                 if (gc_count++ % 100 == 0)
@@ -162,10 +161,12 @@ namespace 潮汐
                     SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
                 }
             }
-
+            ShowTip();
             if (state == States.未启动)
                 return;
-            if (countDown.TotalSeconds <= 0)
+            if (countDown.TotalSeconds == 0)
+                StopMusic();
+            if (countDown.TotalSeconds <= 0 && countDown.TotalSeconds % 30 == 0)
             {
                 //switch (state)
                 //{
@@ -176,11 +177,10 @@ namespace 潮汐
                 //        StartWork();
                 //        break;
                 //}
-                StopMusic();
-                player.Play();
+                PlayEffect(0);
             }
-            else
-                backgroundWorker1.RunWorkerAsync();
+            //else
+            backgroundWorker1.RunWorkerAsync();
         }
 
         private void ShowTip()
@@ -231,7 +231,8 @@ namespace 潮汐
         }
 
         MediaPlayer music_player = new MediaPlayer();
-        SoundPlayer player = new SoundPlayer("./resources/清脆提示音.wav");
+        SoundPlayer player = new SoundPlayer();
+        string[] soundEffects = { "./resources/清脆提示音.wav", "./resources/Windows Notify.wav" };
         string lastMusic;
         private void PlayMusic(string fileName)
         {
@@ -249,6 +250,12 @@ namespace 潮汐
         private void StopMusic()
         {
             music_player.Stop();
+        }
+
+        private void PlayEffect(int index)
+        {
+            player.SoundLocation = soundEffects[index];
+            player.Play();
         }
 
         private void Form1_Load(object sender, EventArgs e)
