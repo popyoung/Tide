@@ -24,6 +24,7 @@
             <RowDefinition Height="70" />
             <RowDefinition Height="70" />
             <RowDefinition Height="70" />
+            <RowDefinition Height="70" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition />
@@ -70,6 +71,17 @@
                        Style="{StaticResource LabelPrimary}" />
             </hc:PreviewSlider.PreviewContent>
         </hc:PreviewSlider>
+        <TextBlock Grid.Row="4"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="提醒间隔：" />
+        <hc:NumericUpDown Name="intervalNumericUpDown"
+                          Grid.Row="4" Grid.Column="1"
+                          Margin="10"
+                          Increment="30" Maximum="1200" Minimum="5"
+                          Value="{Binding AlertInterval}" />
+        <TextBlock Grid.Row="4" Grid.Column="2"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="秒" />
     </Grid>
 
 </Window>

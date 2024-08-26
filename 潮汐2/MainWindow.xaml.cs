@@ -30,6 +30,8 @@ namespace 潮汐2
     {
         public enum States { 工作中, 休息中, 待工作, 待休息 }
         private readonly DispatcherTimer timer = new();
+        private readonly DispatcherTimer timer2 = new();
+        private int timer2Clock = 0;
         private int remainingSeconds;
         private States state = States.待工作;
         public States State
@@ -43,7 +45,7 @@ namespace 潮汐2
         public class MyDataModel : INotifyPropertyChanged
         {
             //public int WorkTime { get; set; } = 25;
-            private int workTime;
+            private int workTime = 25;
 
             public int WorkTime
             {
@@ -54,7 +56,8 @@ namespace 潮汐2
                     OnPropertyChanged(nameof(workTime));
                 }
             }
-            private int restTime;
+
+            private int restTime = 5;
 
             public int RestTime
             {
@@ -65,6 +68,19 @@ namespace 潮汐2
                     OnPropertyChanged(nameof(restTime));
                 }
             }
+
+            private int alertInterval = 180;
+
+            public int AlertInterval
+            {
+                get { return alertInterval; }
+                set
+                {
+                    alertInterval = value;
+                    OnPropertyChanged(nameof(alertInterval));
+                }
+            }
+
             public event PropertyChangedEventHandler? PropertyChanged;
 
             protected virtual void OnPropertyChanged(string propertyName)
@@ -80,6 +96,7 @@ namespace 潮汐2
         private readonly AudioFileReader audioNotifyStart = new AudioFileReader(Environment.CurrentDirectory + "/Resources/Windows Notify.wav");
         private readonly AudioFileReader audioNotifyFinish = new AudioFileReader(Environment.CurrentDirectory + "/Resources/清脆提示音.wav");
         private AudioFileReader? audioMusic;
+        private NotifyIcon notifyIcon;
         public MainWindow()
         {
             InitializeComponent();
@@ -89,10 +106,15 @@ namespace 潮汐2
             timer.Interval = TimeSpan.FromSeconds(1);
             timer.Tick += Timer_Tick;
 
-            App.NotifyIconG.Icon = Icon;
-            App.NotifyIconG.ShowBalloonTip("潮汐2 已启动", "", HandyControl.Data.NotifyIconInfoType.Info);
+            timer2.Interval = TimeSpan.FromSeconds(1);
+            timer2.Tick += Timer2_Tick;
+
+            notifyIcon = ((App)Application.Current).NotifyIconG;
+            notifyIcon.Icon = Icon;
+            notifyIcon.BlinkInterval = TimeSpan.FromMilliseconds(500);
+            notifyIcon.ShowBalloonTip("潮汐2 已启动", "", HandyControl.Data.NotifyIconInfoType.Info);
             //App.NotifyIconG.MouseDoubleClick += NotifyIconG_MouseDoubleClick;
-            App.NotifyIconG.Click += StartButton_Click;
+            notifyIcon.Click += StartButton_Click;
 
             ContextMenu menu = new()
             {
@@ -117,7 +139,7 @@ namespace 潮汐2
 
             menu.Items.Add(new MenuItem() { Header = "设置", Command = ControlCommands.PushMainWindow2Top });
             menu.Items.Add(new MenuItem() { Header = "退出", Command = ControlCommands.ShutdownApp });
-            App.NotifyIconG.ContextMenu = menu;
+            notifyIcon.ContextMenu = menu;
             timerWindow.ContextMenu = menu;
             Hide();
 
@@ -161,6 +183,11 @@ namespace 潮汐2
             storyboard.Completed += (s, e) => timerWindow.Left = temp;
         }
 
+        private void Timer2_Tick(object? sender, EventArgs e)
+        {
+            if (++timer2Clock % model.AlertInterval == 0)
+                PlayAudio(audioNotifyFinish);
+        }
 
         ~MainWindow()
         {
@@ -182,6 +209,9 @@ namespace 潮汐2
             if (remainingSeconds <= 0)
             {
                 timer.Stop();
+                timer2.Start();
+                timer2Clock = 0;
+                notifyIcon.IsBlink = true;
                 outputDevice.Stop();
                 outputDevice.Init(audioNotifyFinish);
                 audioNotifyFinish.Position = 0;
@@ -228,20 +258,12 @@ namespace 潮汐2
             {
                 case States.待工作:
                     State = States.工作中;
-                    outputDevice.Stop();
-                    outputDevice.Init(audioNotifyStart);
-                    audioNotifyStart.Position = 0;
-                    outputDevice.Play();
+                    PlayAudio(audioNotifyStart);
                     break;
                 case States.待休息:
                     State = States.休息中;
                     if (musicComboBox.SelectedIndex != 0 && audioMusic != null)
-                    {
-                        outputDevice.Stop();
-                        audioMusic.Position = 0;
-                        outputDevice.Init(audioMusic);
-                        outputDevice.Play();
-                    }
+                        PlayAudio(audioMusic);
                     break;
                 default:
                     return;
@@ -250,6 +272,16 @@ namespace 潮汐2
             totalSeconds = remainingSeconds;
 
             timer.Start();
+            timer2.Stop();
+            notifyIcon.IsBlink = false;
+        }
+
+        private void PlayAudio(AudioFileReader audio)
+        {
+            outputDevice.Stop();
+            outputDevice.Init(audio);
+            audio.Position = 0;
+            outputDevice.Play();
         }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
@@ -295,25 +327,26 @@ namespace 潮汐2
             }
         }
 
-        public class AppConfig(int restTime, int workTime, int musicComboBoxIndex, double opacity, double top, double left)
+        public class AppConfig(int restTime, int workTime, int alertInterval, int musicComboBoxIndex, double opacity, double top, double left)
         {
             public int RestTime { get; set; } = restTime;
             public int WorkTime { get; set; } = workTime;
+            public int AlertInterval { get; set; } = alertInterval;
             public int MusicComboBoxIndex { get; set; } = musicComboBoxIndex;
             public double Opacity { get; set; } = opacity;
             public double Top { get; set; } = top;
             public double Left { get; set; } = left;
 
-            public (int, int, int, double, double, double) ToTupleValue()
+            public (int, int, int, int, double, double, double) ToTupleValue()
             {
-                return (RestTime, WorkTime, MusicComboBoxIndex, Opacity, Top, Left);
+                return (RestTime, WorkTime, AlertInterval, MusicComboBoxIndex, Opacity, Top, Left);
             }
         }
 
         private void SaveConfigToJson()
         {
             JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true };
-            AppConfig appConfig = new AppConfig(model.RestTime, model.WorkTime, musicComboBox.SelectedIndex, timerWindow.Opacity, timerWindow.Top, timerWindow.Left);
+            AppConfig appConfig = new AppConfig(model.RestTime, model.WorkTime, model.AlertInterval, musicComboBox.SelectedIndex, timerWindow.Opacity, timerWindow.Top, timerWindow.Left);
             string json = JsonSerializer.Serialize(appConfig, options);
             File.WriteAllText("config.json", json);
         }
@@ -322,10 +355,18 @@ namespace 潮汐2
         {
             if (File.Exists("config.json"))
             {
-                string json = File.ReadAllText("config.json");
-                var data = JsonSerializer.Deserialize<AppConfig>(json);
-                if (data != null)
-                    (model.RestTime, model.WorkTime, musicComboBox.SelectedIndex, timerWindow.Opacity, timerWindow.Top, timerWindow.Left) = data.ToTupleValue();
+                try
+                {
+                    string json = File.ReadAllText("config.json");
+                    var data = JsonSerializer.Deserialize<AppConfig>(json);
+                    if (data != null)
+                        (model.RestTime, model.WorkTime, model.AlertInterval, musicComboBox.SelectedIndex, timerWindow.Opacity, timerWindow.Top, timerWindow.Left) = data.ToTupleValue();
+                }
+                catch (Exception ex)
+                {
+                    HandyControl.Controls.MessageBox.Error(ex.Message, "配置文件读取错误");
+                }
+
             }
 
         }
