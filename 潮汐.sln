@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32328.378
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "潮汐", "潮汐\潮汐.csproj", "{34522A59-689C-4FBC-9BF1-7DEE4097AD16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HugeHard.Json", "..\Hugehard\HugeHard.Json\HugeHard.Json.csproj", "{20C605F9-7E2C-438C-B60B-561A162B3A65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "潮汐2", "潮汐2\潮汐2.csproj", "{57452152-B92F-404E-AF04-8F72ADDB2F6F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +19,19 @@ Global
 		{34522A59-689C-4FBC-9BF1-7DEE4097AD16}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{34522A59-689C-4FBC-9BF1-7DEE4097AD16}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{34522A59-689C-4FBC-9BF1-7DEE4097AD16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20C605F9-7E2C-438C-B60B-561A162B3A65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20C605F9-7E2C-438C-B60B-561A162B3A65}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20C605F9-7E2C-438C-B60B-561A162B3A65}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20C605F9-7E2C-438C-B60B-561A162B3A65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57452152-B92F-404E-AF04-8F72ADDB2F6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57452152-B92F-404E-AF04-8F72ADDB2F6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57452152-B92F-404E-AF04-8F72ADDB2F6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57452152-B92F-404E-AF04-8F72ADDB2F6F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {73C739D6-E5A3-43D2-8897-1E954E12205C}
 	EndGlobalSection
 EndGlobal

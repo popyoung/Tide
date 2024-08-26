@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Media;
 using HugeHard.Json;
-using Newtonsoft.Json;
 
 namespace 潮汐
 {
@@ -47,6 +46,10 @@ namespace 潮汐
             InitializeComponent();
             music_player.MediaEnded += Player_MediaEnded;
             comboBox1.SelectedIndex = 0;
+            AllowTransparency = true;
+            TopMost = true;
+            Opacity = 0.8;
+
         }
 
         private void Player_MediaEnded(object sender, EventArgs e)
@@ -56,37 +59,40 @@ namespace 潮汐
 
         private void 退出ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            jsonHelper.Save("config.json", config);
+            jsonHelper.Save();
             Application.Exit();
         }
 
         private void 设置ToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            panel1.Show();
             WindowState = FormWindowState.Normal;
             //Show();
-        }
-
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
         }
 
         private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
-                switch (state)
-                {
-                    case States.未启动:
-                        StartWork();
-                        backgroundWorker1.RunWorkerAsync();
-                        break;
-                    case States.工作:
-                    case States.休息:
-                        state = States.未启动;
-                        StopMusic();
-                        break;
-                }
+                panel1.Hide();
+                WindowState = FormWindowState.Normal;
+            }
+        }
+
+        private void StartOrStop()
+        {
+            switch (state)
+            {
+                case States.未启动:
+                    StartWork();
+                    backgroundWorker1.RunWorkerAsync();
+                    break;
+                case States.工作:
+                case States.休息:
+                    state = States.未启动;
+                    label2.Text = "未启动";
+                    StopMusic();
+                    break;
             }
         }
 
@@ -122,15 +128,17 @@ namespace 潮汐
         {
             countDown = new TimeSpan(0, (int)config.工作时间, 0);
             state = States.工作;
+            label2.Text = "工作中";
             PlayEffect(1);
-            PlayMusic(music[config.背景音乐]);
         }
 
         private void StartBreak()
         {
             countDown = new TimeSpan(0, (int)config.休息时间, 0);
             state = States.休息;
+            label2.Text = "休息中";
             PlayEffect(1);
+            PlayMusic(music[config.背景音乐]);
         }
 
         enum States
@@ -144,7 +152,8 @@ namespace 潮汐
         TimeSpan countDown;
         private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
-            countDown = countDown.Subtract(new TimeSpan(0, 0, 1));
+            //countDown = countDown.Subtract(new TimeSpan(0, 0, 1));
+            backgroundWorker1.ReportProgress(0);
             Thread.Sleep(1000);
         }
 
@@ -166,7 +175,7 @@ namespace 潮汐
                 return;
             if (countDown.TotalSeconds == 0)
                 StopMusic();
-            if (countDown.TotalSeconds <= 0 && countDown.TotalSeconds % 30 == 0)
+            if (countDown.TotalSeconds <= 0 && countDown.TotalSeconds % 180 == 0)
             {
                 //switch (state)
                 //{
@@ -210,11 +219,11 @@ namespace 潮汐
         }
 
         JsonHelper<Config, Form1> jsonHelper;
-        Config config;
+        Config config => jsonHelper.Config;
         private void Form1_Shown(object sender, EventArgs e)
         {
             jsonHelper = new JsonHelper<Config, Form1>(this);
-            config = jsonHelper.Load("config.json");
+            jsonHelper.Load();
             ShowTip();
         }
 
@@ -261,6 +270,28 @@ namespace 潮汐
         private void Form1_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void 跳过ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            countDown = default;
+        }
+
+        private void backgroundWorker1_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            countDown = countDown.Subtract(new TimeSpan(0, 0, 1));
+            var m = countDown.Minutes;
+            if (m < 0)
+                m = 0;
+            var s = countDown.Seconds;
+            if (s < 0)
+                s = 0;
+            label1.Text = $"{m:00}:{s:00}";
+        }
+
+        private void 主界面ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            StartOrStop();
         }
     }
 }
