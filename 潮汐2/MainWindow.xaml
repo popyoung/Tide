@@ -1,0 +1,76 @@
+﻿<Window x:Class="潮汐2.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:hc="https://handyorg.github.io/handycontrol" xmlns:local="clr-namespace:潮汐2"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="番茄钟"
+        Closed="Window_Closed" Closing="Window_Closing" FontFamily="Microsoft YaHei UI"
+        FontSize="14pt" Icon="/resources/hourglass.png" ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        mc:Ignorable="d">
+    <!--  DataContext="{Binding RelativeSource={RelativeSource Self}}"  -->
+    <Window.Resources>
+        <Style x:Key="CenteredMarginStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="10" />
+        </Style>
+    </Window.Resources>
+    <!--<TextBlock x:Name="timerText" Margin="10" Text="25:00" FontSize="24" />
+        <Button x:Name="startButton" Content="开始" Margin="10" Width="80" Height="30" Click="startButton_Click" />
+        <Button x:Name="pauseButton" Content="暂停" Margin="10" Width="80" Height="30" Click="pauseButton_Click" />
+        <Button x:Name="resetButton" Content="重置" Margin="10" Width="80" Height="30" Click="resetButton_Click" />-->
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70" />
+            <RowDefinition Height="70" />
+            <RowDefinition Height="70" />
+            <RowDefinition Height="70" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <TextBlock Style="{StaticResource CenteredMarginStyle}" Text="工作时间：" />
+        <hc:NumericUpDown Grid.Column="1"
+                          Margin="10"
+                          Increment="5" Maximum="180" Minimum="1"
+                          Value="{Binding WorkTime}" />
+        <TextBlock Grid.Column="2"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="分钟" />
+        <TextBlock Grid.Row="1"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="休息时间：" />
+        <hc:NumericUpDown Grid.Row="1" Grid.Column="1"
+                          Margin="10"
+                          Increment="1" Maximum="180" Minimum="1"
+                          Value="{Binding RestTime}" />
+        <TextBlock Grid.Row="1" Grid.Column="2"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="分钟" />
+        <TextBlock Grid.Row="2"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="休息音乐：" />
+        <hc:ComboBox Name="musicComboBox"
+                     Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                     Margin="10"
+                     DisplayMemberPath="Title" SelectedValuePath="Path" SelectionChanged="MusicComboBox_SelectionChanged" />
+        <TextBlock Grid.Row="3"
+                   Style="{StaticResource CenteredMarginStyle}"
+                   Text="浮窗透明：" />
+        <hc:PreviewSlider x:Name="PreviewSliderHorizontal"
+                          Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+                          Margin="10"
+                          Maximum="1"
+                          Value="0.7">
+            <!--  Value="{Binding Path=timerWindow.Opacity,RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type local:MainWindow}}}"  -->
+            <hc:PreviewSlider.PreviewContent>
+                <Label Content="{Binding Path=(hc:PreviewSlider.PreviewPosition), RelativeSource={RelativeSource Self}}"
+                       ContentStringFormat="0%" FontSize="12pt"
+                       Style="{StaticResource LabelPrimary}" />
+            </hc:PreviewSlider.PreviewContent>
+        </hc:PreviewSlider>
+    </Grid>
+
+</Window>
+
