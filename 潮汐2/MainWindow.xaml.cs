@@ -1,9 +1,11 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -19,6 +21,7 @@ using HandyControl.Controls;
 using HandyControl.Interactivity;
 using HandyControl.Tools.Extension;
 using NAudio.Wave;
+using static 潮汐2.MainWindow;
 using Window = System.Windows.Window;
 
 namespace 潮汐2
@@ -29,11 +32,16 @@ namespace 潮汐2
     public partial class MainWindow : Window
     {
         public enum States { 工作中, 休息中, 待工作, 待休息 }
+
+        private int actionThreshold = 180;
         private readonly DispatcherTimer timer = new();
-        private readonly DispatcherTimer timer2 = new();
-        private int timer2Clock = 0;
+        //private readonly DispatcherTimer timer2 = new();
+        //private int timer2Clock = 0;
         private int remainingSeconds;
+        private int idleSeconds;
+        private int inertia = 15;
         private States state = States.待工作;
+        private readonly GlobalInputMonitor monitor = new();
         public States State
         {
             get => state; set
@@ -92,22 +100,16 @@ namespace 潮汐2
         private readonly List<MusicItem> musicList = [];
 
         public TimerWindow timerWindow;
-        private readonly WaveOutEvent outputDevice = new WaveOutEvent();
+        private readonly WaveOutEventManager waveOutEventManager = new();
         private readonly AudioFileReader audioNotifyStart = new AudioFileReader(Environment.CurrentDirectory + "/Resources/Windows Notify.wav");
         private readonly AudioFileReader audioNotifyFinish = new AudioFileReader(Environment.CurrentDirectory + "/Resources/清脆提示音.wav");
         private AudioFileReader? audioMusic;
-        private NotifyIcon notifyIcon;
+        private readonly NotifyIcon notifyIcon;
         public MainWindow()
         {
             InitializeComponent();
 
             timerWindow = new TimerWindow();
-
-            timer.Interval = TimeSpan.FromSeconds(1);
-            timer.Tick += Timer_Tick;
-
-            timer2.Interval = TimeSpan.FromSeconds(1);
-            timer2.Tick += Timer2_Tick;
 
             notifyIcon = ((App)Application.Current).NotifyIconG;
             notifyIcon.Icon = Icon;
@@ -121,7 +123,7 @@ namespace 潮汐2
                 FontFamily = FontFamily,
                 FontSize = FontSize * 0.8
             };
-            MenuItem newItem = new MenuItem() { Header = "启动" };
+            MenuItem newItem = new MenuItem() { Header = "开始" };
             newItem.Click += (s, e) => StartButton_Click(s, e);
             menu.Items.Add(newItem);
 
@@ -167,31 +169,57 @@ namespace 潮汐2
             timerWindow.Show();
 
             // 创建故事板
-            Storyboard storyboard = new Storyboard();
-            DoubleAnimation animationMove = new DoubleAnimation();
-            animationMove.From = 0;
-            //animationMove.BeginTime = TimeSpan.FromSeconds(0.5);
-            animationMove.To = temp;
-            animationMove.Duration = TimeSpan.FromSeconds(1.5);
-            animationMove.DecelerationRatio = 1;
-            animationMove.FillBehavior = FillBehavior.Stop;
+            Storyboard storyboard = new();
+            DoubleAnimation animationMove = new()
+            {
+                From = 0,
+                //BeginTime = TimeSpan.FromSeconds(0.5);
+                To = temp,
+                Duration = TimeSpan.FromSeconds(1.5),
+                DecelerationRatio = 1,
+                FillBehavior = FillBehavior.Stop
+            };
             Storyboard.SetTarget(animationMove, timerWindow);
             Storyboard.SetTargetProperty(animationMove, new PropertyPath("Left"));
             storyboard.Children.Add(animationMove);
             // 播放故事板
             storyboard.Begin(this);
             storyboard.Completed += (s, e) => timerWindow.Left = temp;
+
+            monitor.KeyMsgReceived += Monitor_KeyMsgReceived;
+            monitor.MouseMsgReceived += Monitor_MouseMsgReceived;
+            monitor.MouseMinMovement = 5;
+
+            timer.Interval = TimeSpan.FromMilliseconds(33);
+            timer.Tick += Timer_Tick;
+            StartButton_Click(this, new RoutedEventArgs());
+            timer.Start();
+
         }
 
-        private void Timer2_Tick(object? sender, EventArgs e)
+        private void Monitor_MouseMsgReceived(GlobalInputMonitor.MouseMsgReceivedEventArgs args)
         {
-            if (++timer2Clock % model.AlertInterval == 0)
-                PlayAudio(audioNotifyFinish);
+            ActAgain();
+            //throw new NotImplementedException();
+        }
+
+        private void Monitor_KeyMsgReceived(GlobalInputMonitor.KeyMsgReceivedEventArgs args)
+        {
+            ActAgain();
+        }
+
+        private void ActAgain()
+        {
+            if (State == States.工作中)
+            {
+                if (idleSeconds > inertia && idleSeconds < actionThreshold)
+                    remainingSeconds -= idleSeconds - inertia;
+                idleSeconds = 0;
+            }
         }
 
         ~MainWindow()
         {
-            outputDevice.Dispose();
             audioNotifyStart.Dispose();
             audioNotifyFinish.Dispose();
             audioMusic?.Dispose();
@@ -203,34 +231,93 @@ namespace 潮汐2
             Show();
         }
 
+        private int ProgressBarMax => Math.Max(model.RestTime * 60, actionThreshold);
+        private DateTime timeStart;
+
+        private int lastTickSecond;
         private void Timer_Tick(object? sender, EventArgs e)
         {
-            remainingSeconds--;
-            if (remainingSeconds <= 0)
+            var t = (int)(DateTime.Now - timeStart).TotalSeconds;
+            if (t > lastTickSecond)
+                lastTickSecond = t;
+            else
+                return;
+            if (State == States.工作中 || State == States.休息中)
             {
-                timer.Stop();
-                timer2.Start();
-                timer2Clock = 0;
-                notifyIcon.IsBlink = true;
-                outputDevice.Stop();
-                outputDevice.Init(audioNotifyFinish);
-                audioNotifyFinish.Position = 0;
-                outputDevice.Play();
-                State = State switch
+                if (State == States.工作中)
                 {
-                    States.工作中 => States.待休息,
-                    States.休息中 => States.待工作,
-                    _ => throw new InvalidOperationException("Invalid state! Should never happen."),
-                };
+                    if (idleSeconds++ <= inertia)
+                        remainingSeconds--;
+                    else if (CheckVideoPlaying())
+                    {
+                        remainingSeconds--;
+                        idleSeconds = 0;
+                    }
+                }
+                else
+                    remainingSeconds--;
+
+                if (State == States.工作中 && idleSeconds >= ProgressBarMax)
+                {
+                    remainingSeconds = totalSeconds;
+                }
+                if (remainingSeconds <= 0)
+                {
+                    //timer.Stop();
+                    //timer2.Start();
+                    //timer2Clock = 0;
+                    notifyIcon.IsBlink = true;
+                    State = State switch
+                    {
+                        States.工作中 => States.待休息,
+                        States.休息中 => States.待工作,
+                        _ => throw new InvalidOperationException("Invalid state! Should never happen."),
+                    };
+                }
+                UpdateTimerText();
             }
-            UpdateTimerText();
+            if (State == States.待休息 || State == States.待工作)
+            {
+                remainingSeconds--;
+                if (remainingSeconds <= 0)
+                {
+                    waveOutEventManager.PlayAudio(audioNotifyFinish);
+                    remainingSeconds = model.AlertInterval;
+                }
+            }
+        }
+
+        private readonly Process process = new Process { StartInfo = processStartInfo };
+        private readonly Regex regexNotDisplay = new Regex(@"DISPLAY:\s*None");
+        private static readonly ProcessStartInfo processStartInfo = new ProcessStartInfo
+        {
+            FileName = "powercfg.exe",
+            Arguments = "/requests",
+            RedirectStandardOutput = true,
+        };
+        private bool CheckVideoPlaying()
+        {
+            try
+            {
+                process.Start();
+                process.WaitForExit();
+                string output = process.StandardOutput.ReadToEnd();
+                //Trace.WriteLine(output.ToString());
+                return !regexNotDisplay.IsMatch(output);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceWarning(ex.Message);
+                return false;
+            }
         }
 
         private void UpdateTimerText()
         {
-            if (timer.IsEnabled)
+            if (State == States.工作中 || State == States.休息中)
             {
                 timerWindow.progressBar.Value = 100 - remainingSeconds * 100.0 / totalSeconds;
+                timerWindow.progressBar2.Value = idleSeconds * 100.0 / ProgressBarMax;
                 TimeSpan timeSpan = TimeSpan.FromSeconds(remainingSeconds);
                 if (timeSpan.Hours < 1)
                 {
@@ -248,6 +335,7 @@ namespace 潮汐2
                 timerWindow.label.Text = State.ToString();
                 Canvas.SetLeft(timerWindow.label, 30);
                 timerWindow.progressBar.Value = 100;
+                timerWindow.progressBar2.Value = 0;
             }
         }
 
@@ -258,31 +346,37 @@ namespace 潮汐2
             {
                 case States.待工作:
                     State = States.工作中;
-                    PlayAudio(audioNotifyStart);
+                    remainingSeconds = model.WorkTime * 60;
+                    waveOutEventManager.PlayAudio(audioNotifyStart);
                     break;
                 case States.待休息:
                     State = States.休息中;
+                    remainingSeconds = model.RestTime * 60;
                     if (musicComboBox.SelectedIndex != 0 && audioMusic != null)
-                        PlayAudio(audioMusic);
+                        waveOutEventManager.PlayAudio(audioMusic, true);
                     break;
+                case States.工作中:
+                case States.休息中:
                 default:
                     return;
             }
-            remainingSeconds = State == States.休息中 ? model.RestTime * 60 : model.WorkTime * 60;
-            totalSeconds = remainingSeconds;
-
-            timer.Start();
-            timer2.Stop();
             notifyIcon.IsBlink = false;
+            totalSeconds = remainingSeconds;
+            timeStart = DateTime.Now;
+            lastTickSecond = 0;
+            //remainingSeconds = State == States.休息中 ? model.RestTime * 60 : model.WorkTime * 60;
+
+            //remainingSeconds = State switch
+            //{
+            //    States.待休息 => model.AlertInterval,
+            //    States.待工作 => model.AlertInterval,
+            //    States.工作中 => model.WorkTime * 60,
+            //    States.休息中 => model.RestTime * 60,
+            //    _ => throw new NotImplementedException()
+            //};
+
         }
 
-        private void PlayAudio(AudioFileReader audio)
-        {
-            outputDevice.Stop();
-            outputDevice.Init(audio);
-            audio.Position = 0;
-            outputDevice.Play();
-        }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
         {
@@ -294,8 +388,8 @@ namespace 潮汐2
         {
             if (State == States.工作中 || State == States.休息中)
             {
-                State = States.休息中;
                 remainingSeconds = 1;
+                State = States.休息中;
             }
         }
 
@@ -315,15 +409,10 @@ namespace 潮汐2
         {
             if (musicComboBox.SelectedIndex != 0)
             {
-                if (State == States.休息中)
-                    outputDevice.Stop();
                 audioMusic?.Dispose();
                 audioMusic = new AudioFileReader(musicComboBox.SelectedValue.ToString());
                 if (State == States.休息中)
-                {
-                    outputDevice.Init(audioMusic);
-                    outputDevice.Play();
-                }
+                    waveOutEventManager.PlayAudio(audioMusic, true);
             }
         }
 
@@ -343,11 +432,11 @@ namespace 潮汐2
             }
         }
 
+        readonly JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions { WriteIndented = true };
         private void SaveConfigToJson()
         {
-            JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true };
             AppConfig appConfig = new AppConfig(model.RestTime, model.WorkTime, model.AlertInterval, musicComboBox.SelectedIndex, timerWindow.Opacity, timerWindow.Top, timerWindow.Left);
-            string json = JsonSerializer.Serialize(appConfig, options);
+            string json = JsonSerializer.Serialize(appConfig, jsonSerializerOptions);
             File.WriteAllText("config.json", json);
         }
 

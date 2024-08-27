@@ -12,24 +12,30 @@
     <Canvas Width="120" Height="40"
             PreviewMouseDown="Window_PreviewMouseDown">
         <Border Width="120" Height="40"
-                Panel.ZIndex="2"
+                Panel.ZIndex="20"
                 BorderBrush="Black" BorderThickness="0.5" />
         <ProgressBar Name="progressBar"
                      Width="120" Height="40"
                      Background="#D0D0D0" Foreground="#FFDE881A"
                      Style="{DynamicResource ProgressBarFlat}"
                      Value="100" />
+        <ProgressBar Name="progressBar2"
+                     Width="120" Height="40"
+                     Panel.ZIndex="5"
+                     Background="#00000000" Foreground="#FF56DE1A"
+                     Style="{DynamicResource ProgressBarFlat}"
+                     Value="50" />
         <TextBlock Name="label"
                    Canvas.Left="30" Canvas.Top="8"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="1"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="10"
                    Text="待工作" />
         <Image Canvas.Left="100"
                Width="20" Height="20"
-               Panel.ZIndex="2"
+               Panel.ZIndex="20"
                Source="/resources/close.png" />
         <Button Canvas.Left="100"
                 Width="20" Height="20"
-                Panel.ZIndex="3"
+                Panel.ZIndex="30"
                 BorderThickness="0" Click="Start_Click" Focusable="False"
                 Opacity="0" />
     </Canvas>
