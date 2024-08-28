@@ -192,7 +192,7 @@ namespace 潮汐2
 
             timer.Interval = TimeSpan.FromMilliseconds(33);
             timer.Tick += Timer_Tick;
-            StartButton_Click(this, new RoutedEventArgs());
+            TomatoStart();
             timer.Start();
 
         }
@@ -208,21 +208,12 @@ namespace 潮汐2
             ActAgain();
         }
 
-        private void ActAgain()
-        {
-            if (State == States.工作中)
-            {
-                if (idleSeconds > inertia && idleSeconds < actionThreshold)
-                    remainingSeconds -= idleSeconds - inertia;
-                idleSeconds = 0;
-            }
-        }
-
         ~MainWindow()
         {
             audioNotifyStart.Dispose();
             audioNotifyFinish.Dispose();
             audioMusic?.Dispose();
+            process.Dispose();
         }
 
 
@@ -235,6 +226,19 @@ namespace 潮汐2
         private DateTime timeStart;
 
         private int lastTickSecond;
+        private bool? lastVideoCheckedResult = null;
+        private void ActAgain()
+        {
+            //if (State == States.工作中)
+            //{
+            if (idleSeconds > inertia /*&& idleSeconds <= actionThreshold*/)
+                if (State != States.工作中 || idleSeconds <= actionThreshold)
+                    remainingSeconds -= idleSeconds - inertia;
+            idleSeconds = 0;
+            lastVideoCheckedResult = null;
+            //}
+        }
+
         private void Timer_Tick(object? sender, EventArgs e)
         {
             var t = (int)(DateTime.Now - timeStart).TotalSeconds;
@@ -242,30 +246,53 @@ namespace 潮汐2
                 lastTickSecond = t;
             else
                 return;
+
+            //测试代码
+            //ActAgain();
+            //inertia = 3;
+            //actionThreshold = 30;
+
+            remainingSeconds--;
+            //无操作过了惯性时间后
+            if (idleSeconds++ > inertia)
+            {
+                lastVideoCheckedResult ??= CheckVideoPlaying();
+                //无视频播放则停表
+                if (lastVideoCheckedResult == false)
+                    remainingSeconds++;
+                //有视频播放则清空空闲时间
+                else
+                    idleSeconds = 0;
+            }
+
+            //if (idleSeconds++ <= inertia)
+            //    remainingSeconds--;
+            //else if (lastVideoCheckedResult == null)
+            //{
+            //    lastVideoCheckedResult = CheckVideoPlaying();
+            //    if (lastVideoCheckedResult == true)
+            //    {
+            //        remainingSeconds--;
+            //        idleSeconds = 0;
+            //    }
+            //}
+            //if (lastVideoCheckedResult == true)
+            //{
+            //    remainingSeconds--;
+            //    idleSeconds = 0;
+            //}
+
+            //空闲时间超出阈值和休息时间则重新开始番茄钟
+            if (idleSeconds >= ProgressBarMax)
+                //remainingSeconds = totalSeconds;
+                if (State != States.工作中 || remainingSeconds != totalSeconds)
+                    TomatoReset();
+
             if (State == States.工作中 || State == States.休息中)
             {
-                if (State == States.工作中)
-                {
-                    if (idleSeconds++ <= inertia)
-                        remainingSeconds--;
-                    else if (CheckVideoPlaying())
-                    {
-                        remainingSeconds--;
-                        idleSeconds = 0;
-                    }
-                }
-                else
-                    remainingSeconds--;
 
-                if (State == States.工作中 && idleSeconds >= ProgressBarMax)
-                {
-                    remainingSeconds = totalSeconds;
-                }
                 if (remainingSeconds <= 0)
                 {
-                    //timer.Stop();
-                    //timer2.Start();
-                    //timer2Clock = 0;
                     notifyIcon.IsBlink = true;
                     State = State switch
                     {
@@ -278,7 +305,6 @@ namespace 潮汐2
             }
             if (State == States.待休息 || State == States.待工作)
             {
-                remainingSeconds--;
                 if (remainingSeconds <= 0)
                 {
                     waveOutEventManager.PlayAudio(audioNotifyFinish);
@@ -288,12 +314,15 @@ namespace 潮汐2
         }
 
         private readonly Process process = new Process { StartInfo = processStartInfo };
-        private readonly Regex regexNotDisplay = new Regex(@"DISPLAY:\s*None");
         private static readonly ProcessStartInfo processStartInfo = new ProcessStartInfo
         {
             FileName = "powercfg.exe",
             Arguments = "/requests",
             RedirectStandardOutput = true,
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+
         };
         private bool CheckVideoPlaying()
         {
@@ -303,7 +332,7 @@ namespace 潮汐2
                 process.WaitForExit();
                 string output = process.StandardOutput.ReadToEnd();
                 //Trace.WriteLine(output.ToString());
-                return !regexNotDisplay.IsMatch(output);
+                return !IsDisplayNone(output);
             }
             catch (Exception ex)
             {
@@ -317,7 +346,8 @@ namespace 潮汐2
             if (State == States.工作中 || State == States.休息中)
             {
                 timerWindow.progressBar.Value = 100 - remainingSeconds * 100.0 / totalSeconds;
-                timerWindow.progressBar2.Value = idleSeconds * 100.0 / ProgressBarMax;
+                if (State == States.工作中)
+                    timerWindow.progressBar2.Value = idleSeconds * 100.0 / ProgressBarMax;
                 TimeSpan timeSpan = TimeSpan.FromSeconds(remainingSeconds);
                 if (timeSpan.Hours < 1)
                 {
@@ -341,6 +371,11 @@ namespace 潮汐2
 
         private int totalSeconds = 0;
         private void StartButton_Click(object sender, RoutedEventArgs e)
+        {
+            TomatoStart();
+        }
+
+        private void TomatoStart()
         {
             switch (State)
             {
@@ -374,23 +409,36 @@ namespace 潮汐2
             //    States.休息中 => model.RestTime * 60,
             //    _ => throw new NotImplementedException()
             //};
-
         }
-
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
         {
-            if (State == States.工作中 || State == States.休息中)
-                remainingSeconds = 1;
+            TomatoSkip();
+        }
+
+        private void TomatoSkip()
+        {
+            State = State switch
+            {
+                States.工作中 => States.待休息,
+                States.休息中 => States.待工作,
+                _ => throw new InvalidOperationException("Invalid state! Should never happen."),
+            };
+            TomatoStart();
+
+            //测试代码
+            //remainingSeconds = 1;
         }
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            if (State == States.工作中 || State == States.休息中)
-            {
-                remainingSeconds = 1;
-                State = States.休息中;
-            }
+            TomatoReset();
+        }
+
+        private void TomatoReset()
+        {
+            State = States.待工作;
+            TomatoStart();
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
@@ -463,6 +511,13 @@ namespace 潮汐2
         private void Window_Closed(object sender, EventArgs e)
         {
             SaveConfigToJson();
+        }
+
+        [GeneratedRegex(@"DISPLAY:\s*None")]
+        private static partial Regex MyRegexDisplayNone();
+        private static bool IsDisplayNone(string text)
+        {
+            return MyRegexDisplayNone().IsMatch(text);
         }
 
     }

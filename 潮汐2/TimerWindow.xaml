@@ -24,7 +24,7 @@
                      Panel.ZIndex="5"
                      Background="#00000000" Foreground="#FF56DE1A"
                      Style="{DynamicResource ProgressBarFlat}"
-                     Value="50" />
+                     Value="0" />
         <TextBlock Name="label"
                    Canvas.Left="30" Canvas.Top="8"
                    HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="10"

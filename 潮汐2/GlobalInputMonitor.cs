@@ -33,9 +33,10 @@ namespace 潮汐2
         public GlobalInputMonitor()
         {
             keyboardHookProc = KeyboardHookProc;
-            keyboardHookId = User32.SetWindowsHookEx(User32.HookType.WH_KEYBOARD_LL, keyboardHookProc);
-
             mouseHookProc = MouseHookProc;
+
+            //测试时注释
+            keyboardHookId = User32.SetWindowsHookEx(User32.HookType.WH_KEYBOARD_LL, keyboardHookProc);
             mouseHookId = User32.SetWindowsHookEx(User32.HookType.WH_MOUSE_LL, mouseHookProc);
         }
 
