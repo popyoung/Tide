@@ -32,7 +32,6 @@ namespace 潮汐2
     public partial class MainWindow : Window
     {
         public enum States { 工作中, 休息中, 待工作, 待休息 }
-
         private int actionThreshold = 180;
         private readonly DispatcherTimer timer = new();
         //private readonly DispatcherTimer timer2 = new();
@@ -105,6 +104,7 @@ namespace 潮汐2
         private readonly AudioFileReader audioNotifyFinish = new AudioFileReader(Environment.CurrentDirectory + "/Resources/清脆提示音.wav");
         private AudioFileReader? audioMusic;
         private readonly NotifyIcon notifyIcon;
+        private readonly MenuItem playPauseItem;
         public MainWindow()
         {
             InitializeComponent();
@@ -123,9 +123,13 @@ namespace 潮汐2
                 FontFamily = FontFamily,
                 FontSize = FontSize * 0.8
             };
-            MenuItem newItem = new MenuItem() { Header = "开始" };
+            MenuItem newItem = new MenuItem() { Header = "下一步" };
             newItem.Click += (s, e) => StartButton_Click(s, e);
             menu.Items.Add(newItem);
+
+            playPauseItem = new MenuItem { Header = "启动/暂停", IsChecked = true };
+            playPauseItem.Click += (s, e) => PlayPauseButton_Click(s, e);
+            menu.Items.Add(playPauseItem);
 
             newItem = new MenuItem() { Header = "跳过", };
             newItem.Click += (s, e) => SkipButton_Click(s, e);
@@ -166,6 +170,7 @@ namespace 潮汐2
             LoadConfigFromJson();
             var temp = timerWindow.Left;
             timerWindow.Left = 0;
+            timerWindow.LabelMouseLeftButtonDown += StartButton_Click;
             timerWindow.Show();
 
             // 创建故事板
@@ -196,6 +201,7 @@ namespace 潮汐2
             timer.Start();
 
         }
+
 
         private void Monitor_MouseMsgReceived(GlobalInputMonitor.MouseMsgReceivedEventArgs args)
         {
@@ -372,6 +378,9 @@ namespace 潮汐2
         private int totalSeconds = 0;
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
+            ////这两个状态，点击文字无法拖动浮窗
+            //if (State == States.待工作 || State == States.待休息)
+            //    e.Handled = true;
             TomatoStart();
         }
 
@@ -399,16 +408,28 @@ namespace 潮汐2
             totalSeconds = remainingSeconds;
             timeStart = DateTime.Now;
             lastTickSecond = 0;
-            //remainingSeconds = State == States.休息中 ? model.RestTime * 60 : model.WorkTime * 60;
+        }
 
-            //remainingSeconds = State switch
-            //{
-            //    States.待休息 => model.AlertInterval,
-            //    States.待工作 => model.AlertInterval,
-            //    States.工作中 => model.WorkTime * 60,
-            //    States.休息中 => model.RestTime * 60,
-            //    _ => throw new NotImplementedException()
-            //};
+        private void TomatoPlayPause()
+        {
+            if (timer.IsEnabled)
+            {
+                timer.Stop();
+                timerWindow.progressBar2.Value = 100;
+            }
+            else
+                timer.Start();
+            playPauseItem.IsChecked = timer.IsEnabled;
+            for (int i = 0; i < notifyIcon.ContextMenu.Items.Count - 1; i++)
+            {
+                MenuItem item = (MenuItem)notifyIcon.ContextMenu.Items[i];
+                item.IsEnabled = timer.IsEnabled;
+            }
+            playPauseItem.IsEnabled = true;
+        }
+        private void PlayPauseButton_Click(object s, RoutedEventArgs e)
+        {
+            TomatoPlayPause();
         }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
@@ -426,8 +447,9 @@ namespace 潮汐2
             };
             TomatoStart();
 
-            //测试代码
+            ////测试代码
             //remainingSeconds = 1;
+            //idleSeconds = 0;
         }
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)

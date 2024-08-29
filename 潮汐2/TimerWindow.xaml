@@ -5,12 +5,12 @@
         Title="Timer"
         Width="120" Height="40"
         AllowsTransparency="True" Closing="Window_Closing" FontFamily="Microsoft YaHei UI"
-        FontSize="14pt" Left="1200" Opacity="0.6"
-        ResizeMode="NoResize" ShowInTaskbar="False" Top="0"
-        Topmost="True" WindowStartupLocation="Manual" WindowStyle="None"
+        FontSize="14pt" Left="1200" MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        Opacity="0.6" ResizeMode="NoResize" ShowInTaskbar="False"
+        Top="0" Topmost="True" WindowStartupLocation="Manual"
+        WindowStyle="None"
         mc:Ignorable="d">
-    <Canvas Width="120" Height="40"
-            PreviewMouseDown="Window_PreviewMouseDown">
+    <Canvas Width="120" Height="40">
         <Border Width="120" Height="40"
                 Panel.ZIndex="20"
                 BorderBrush="Black" BorderThickness="0.5" />
@@ -28,7 +28,8 @@
         <TextBlock Name="label"
                    Canvas.Left="30" Canvas.Top="8"
                    HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="10"
-                   Text="待工作" />
+                   MouseLeftButtonDown="Label_MouseLeftButtonDown" Text="待工作" />
+
         <Image Canvas.Left="100"
                Width="20" Height="20"
                Panel.ZIndex="20"
