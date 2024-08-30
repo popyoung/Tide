@@ -109,13 +109,13 @@ namespace 潮汐2
         {
             InitializeComponent();
 
-            timerWindow = new TimerWindow();
+            timerWindow = new TimerWindow(this);
 
             notifyIcon = ((App)Application.Current).NotifyIconG;
             notifyIcon.Icon = Icon;
             notifyIcon.BlinkInterval = TimeSpan.FromMilliseconds(500);
             notifyIcon.ShowBalloonTip("潮汐2 已启动", "", HandyControl.Data.NotifyIconInfoType.Info);
-            //App.NotifyIconG.MouseDoubleClick += NotifyIconG_MouseDoubleClick;
+            notifyIcon.MouseDoubleClick += NotifyIconG_MouseDoubleClick;
             notifyIcon.Click += StartButton_Click;
 
             ContextMenu menu = new()
@@ -143,7 +143,10 @@ namespace 潮汐2
             newItem.Click += (s, e) => timerWindow.Show();
             menu.Items.Add(newItem);
 
-            menu.Items.Add(new MenuItem() { Header = "设置", Command = ControlCommands.PushMainWindow2Top });
+            newItem = new MenuItem() { Header = "设置", };
+            newItem.Click += NotifyIconG_MouseDoubleClick;
+            menu.Items.Add(newItem);
+
             menu.Items.Add(new MenuItem() { Header = "退出", Command = ControlCommands.ShutdownApp });
             notifyIcon.ContextMenu = menu;
             timerWindow.ContextMenu = menu;
@@ -168,18 +171,16 @@ namespace 潮汐2
             PreviewSliderHorizontal.SetBinding(PreviewSlider.ValueProperty, b);
 
             LoadConfigFromJson();
-            var temp = timerWindow.Left;
-            timerWindow.Left = 0;
-            timerWindow.LabelMouseLeftButtonDown += StartButton_Click;
-            timerWindow.Show();
+            //var temp = timerWindow.Left;
 
             // 创建故事板
             Storyboard storyboard = new();
+
             DoubleAnimation animationMove = new()
             {
                 From = 0,
                 //BeginTime = TimeSpan.FromSeconds(0.5);
-                To = temp,
+                To = timerWindow.Left,
                 Duration = TimeSpan.FromSeconds(1.5),
                 DecelerationRatio = 1,
                 FillBehavior = FillBehavior.Stop
@@ -187,9 +188,13 @@ namespace 潮汐2
             Storyboard.SetTarget(animationMove, timerWindow);
             Storyboard.SetTargetProperty(animationMove, new PropertyPath("Left"));
             storyboard.Children.Add(animationMove);
+            storyboard.Completed += (s, e) => timerWindow.Left = timerWindow.Left;
+
+            timerWindow.LabelMouseLeftButtonDown += StartButton_Click;
+            timerWindow.Left = 0;
+            timerWindow.Show();
             // 播放故事板
             storyboard.Begin(this);
-            storyboard.Completed += (s, e) => timerWindow.Left = temp;
 
             monitor.KeyMsgReceived += Monitor_KeyMsgReceived;
             monitor.MouseMsgReceived += Monitor_MouseMsgReceived;
@@ -199,7 +204,6 @@ namespace 潮汐2
             timer.Tick += Timer_Tick;
             TomatoStart();
             timer.Start();
-
         }
 
 
@@ -222,10 +226,11 @@ namespace 潮汐2
             process.Dispose();
         }
 
-
         private void NotifyIconG_MouseDoubleClick(object sender, RoutedEventArgs e)
         {
             Show();
+            Topmost = true;
+            Topmost = false;
         }
 
         private int ProgressBarMax => Math.Max(model.RestTime * 60, actionThreshold);
@@ -416,9 +421,13 @@ namespace 潮汐2
             {
                 timer.Stop();
                 timerWindow.progressBar2.Value = 100;
+                waveOutEventManager.PausePlay();
             }
             else
+            {
                 timer.Start();
+                waveOutEventManager.PausePlay();
+            }
             playPauseItem.IsChecked = timer.IsEnabled;
             for (int i = 0; i < notifyIcon.ContextMenu.Items.Count - 1; i++)
             {

@@ -27,10 +27,30 @@ namespace 潮汐2
                 AutoRepeat = autoRepeat;
                 initialedReader = audioFileReader;
                 outputDevice.Stop();
+                isPaused = false;
                 outputDevice.Init(audioFileReader);
                 audioFileReader.Position = 0;
                 outputDevice.Play();
             }
+
+            private bool isPaused;
+            public void PausePlay()
+            {
+                if (initialedReader != null && initialedReader.Position != initialedReader.Length)
+                {
+                    if (isPaused)
+                    {
+                        isPaused = false;
+                        outputDevice.Play();
+                    }
+                    else
+                    {
+                        isPaused = true;
+                        outputDevice.Pause();
+                    }
+                }
+            }
+
             ~WaveOutEventManager()
             {
                 outputDevice.Dispose();
