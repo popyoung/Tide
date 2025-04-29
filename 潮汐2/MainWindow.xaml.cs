@@ -116,7 +116,7 @@ namespace 潮汐2
             notifyIcon.BlinkInterval = TimeSpan.FromMilliseconds(500);
             notifyIcon.ShowBalloonTip("潮汐2 已启动", "", HandyControl.Data.NotifyIconInfoType.Info);
             notifyIcon.MouseDoubleClick += NotifyIconG_MouseDoubleClick;
-            notifyIcon.Click += StartButton_Click;
+            notifyIcon.Click += NextStepButton_Click;
 
             ContextMenu menu = new()
             {
@@ -124,11 +124,11 @@ namespace 潮汐2
                 FontSize = FontSize * 0.8
             };
             MenuItem newItem = new MenuItem() { Header = "下一步" };
-            newItem.Click += (s, e) => StartButton_Click(s, e);
+            newItem.Click += (s, e) => NextStepButton_Click(s, e);
             menu.Items.Add(newItem);
 
             playPauseItem = new MenuItem { Header = "启动/暂停", IsChecked = true };
-            playPauseItem.Click += (s, e) => PlayPauseButton_Click(s, e);
+            playPauseItem.Click += (s, e) => StartPauseButton_Click(s, e);
             menu.Items.Add(playPauseItem);
 
             newItem = new MenuItem() { Header = "跳过", };
@@ -140,7 +140,7 @@ namespace 潮汐2
             menu.Items.Add(newItem);
 
             newItem = new MenuItem() { Header = "显示浮窗", };
-            newItem.Click += (s, e) => timerWindow.Show();
+            newItem.Click += (s, e) => timerWindow.ShowAgain();
             menu.Items.Add(newItem);
 
             newItem = new MenuItem() { Header = "设置", };
@@ -190,7 +190,7 @@ namespace 潮汐2
             storyboard.Children.Add(animationMove);
             storyboard.Completed += (s, e) => timerWindow.Left = timerWindow.Left;
 
-            timerWindow.LabelMouseLeftButtonDown += StartButton_Click;
+            timerWindow.LabelMouseLeftButtonDown += NextStepButton_Click;
             timerWindow.Left = 0;
             timerWindow.Show();
             // 播放故事板
@@ -202,7 +202,7 @@ namespace 潮汐2
 
             timer.Interval = TimeSpan.FromMilliseconds(33);
             timer.Tick += Timer_Tick;
-            TomatoStart();
+            TomatoNextStep();
             timer.Start();
         }
 
@@ -381,15 +381,16 @@ namespace 潮汐2
         }
 
         private int totalSeconds = 0;
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        private void NextStepButton_Click(object sender, RoutedEventArgs e)
         {
             ////这两个状态，点击文字无法拖动浮窗
             //if (State == States.待工作 || State == States.待休息)
             //    e.Handled = true;
-            TomatoStart();
+            if (timer.IsEnabled)
+                TomatoNextStep();
         }
 
-        private void TomatoStart()
+        private void TomatoNextStep()
         {
             switch (State)
             {
@@ -415,30 +416,35 @@ namespace 潮汐2
             lastTickSecond = 0;
         }
 
-        private void TomatoPlayPause()
+        private void TomatoStartPause()
         {
             if (timer.IsEnabled)
             {
                 timer.Stop();
                 timerWindow.progressBar2.Value = 100;
                 waveOutEventManager.PausePlay();
+                notifyIcon.IsBlink = false;
             }
             else
             {
                 timer.Start();
                 waveOutEventManager.PausePlay();
+                if (State == States.待工作 || State == States.待休息)
+                    notifyIcon.IsBlink = true;
+                idleSeconds = 0;
+                timerWindow.progressBar2.Value = 0;
             }
             playPauseItem.IsChecked = timer.IsEnabled;
-            for (int i = 0; i < notifyIcon.ContextMenu.Items.Count - 1; i++)
-            {
-                MenuItem item = (MenuItem)notifyIcon.ContextMenu.Items[i];
-                item.IsEnabled = timer.IsEnabled;
-            }
-            playPauseItem.IsEnabled = true;
+            ((MenuItem)notifyIcon.ContextMenu.Items[0]).IsEnabled = timer.IsEnabled;
+            ((MenuItem)notifyIcon.ContextMenu.Items[2]).IsEnabled = timer.IsEnabled;
+            ((MenuItem)notifyIcon.ContextMenu.Items[3]).IsEnabled = timer.IsEnabled;
+            timerWindow.label.IsEnabled = timer.IsEnabled;
+
+            //playPauseItem.IsEnabled = true;
         }
-        private void PlayPauseButton_Click(object s, RoutedEventArgs e)
+        private void StartPauseButton_Click(object s, RoutedEventArgs e)
         {
-            TomatoPlayPause();
+            TomatoStartPause();
         }
 
         private void SkipButton_Click(object sender, RoutedEventArgs e)
@@ -451,12 +457,14 @@ namespace 潮汐2
             State = State switch
             {
                 States.工作中 => States.待休息,
+                States.待工作 => States.待工作,
                 States.休息中 => States.待工作,
-                _ => throw new InvalidOperationException("Invalid state! Should never happen."),
+                States.待休息 => States.待休息,
+                _ => throw new NotImplementedException("Invalid state! Should never happen."),
             };
-            TomatoStart();
+            TomatoNextStep();
 
-            ////测试代码
+            //测试代码
             //remainingSeconds = 1;
             //idleSeconds = 0;
         }
@@ -469,7 +477,7 @@ namespace 潮汐2
         private void TomatoReset()
         {
             State = States.待工作;
-            TomatoStart();
+            TomatoNextStep();
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)

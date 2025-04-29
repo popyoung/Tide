@@ -33,7 +33,7 @@ namespace 潮汐2
             Owner = owner;
             animationFadeOut = new()
             {
-                From = Opacity,
+                From = Owner.PreviewSliderHorizontal.Value,
                 //BeginTime = TimeSpan.FromSeconds(0.5);
                 To = 0,
                 Duration = TimeSpan.FromSeconds(0.5),
@@ -49,14 +49,20 @@ namespace 潮汐2
             {
                 From = 0,
                 //BeginTime = TimeSpan.FromSeconds(3),
-                To = Opacity,
+                To = Owner.PreviewSliderHorizontal.Value,
                 Duration = TimeSpan.FromSeconds(1.5),
                 FillBehavior = FillBehavior.Stop
             };
             Storyboard.SetTarget(animationFadeIn, this);
             Storyboard.SetTargetProperty(animationFadeIn, new PropertyPath(OpacityProperty));
             storyboardFadeIn.Children.Add(animationFadeIn);
+            storyboardFadeIn.Completed += StoryboardFadeIn_Completed;
 
+        }
+
+        private void StoryboardFadeIn_Completed(object? sender, EventArgs e)
+        {
+            isShowing = false;
         }
 
         private void Storyboard_Completed(object? sender, EventArgs e)
@@ -87,24 +93,35 @@ namespace 潮汐2
             DragMove();
         }
 
-        public Action<object, MouseButtonEventArgs>? WindowMouseDoubleClick;
+        private CancellationTokenSource Cts = new CancellationTokenSource();
         private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-
-            animationFadeOut.From = Opacity;
-            animationFadeIn.To = Opacity;
+            Cts = new();
+            animationFadeOut.From = Owner.PreviewSliderHorizontal.Value;
             IsEnabled = false;
-            Task.Delay(3000).ContinueWith(t =>
+            Task.Delay(10000).ContinueWith(t =>
             {
                 Dispatcher.Invoke(new Action(() =>
                 {
-                    Show();
-                    IsEnabled = true;
-                    storyboardFadeIn.Begin();
+                    ShowAgain();
                 }));
-            });
+            }, Cts.Token);
             // 播放故事板
             storyboardFadeOut.Begin(this);
+        }
+
+        bool isShowing = false;
+        public void ShowAgain()
+        {
+            if (!isShowing && Visibility == Visibility.Hidden)
+            {
+                isShowing = true;
+                Show();
+                IsEnabled = true;
+                animationFadeIn.To = Owner.PreviewSliderHorizontal.Value;
+                storyboardFadeIn.Begin();
+                Cts.Cancel();
+            }
         }
     }
 }
